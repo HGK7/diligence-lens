@@ -1,0 +1,126 @@
+[
+  {
+    "id": "consequential-damages-01",
+    "question": "Find clauses that exclude liability for consequential damages.",
+    "expected_sources": [
+      "cuad_a25438c8_MEDIWOUNDLTD_01_15_2014-EX-10.6-SUPPLY_AGREEMENT.txt",
+      "cuad_8fc86c4a_VERICELCORP_08_06_2019-EX-10.10-SUPPLY_AGREEMENT.txt",
+      "cuad_e11eaddc_WHITESMOKE_INC_11_08_2011-EX-10.26-PROMOTION_AND_DISTRIBUTION_AGREEMENT.txt"
+    ],
+    "expected_terms": [
+      "consequential",
+      "Limitation"  
+    ],
+    "notes": "Verified in MediWound §7B, Vericel §7.6, Whitesmoke §9 (indirect/consequential losses)."
+  },
+  {
+    "id": "change-of-control-termination-01",
+    "question": "Which agreements permit termination after a change of control?",
+    "expected_sources": [
+      "cuad_e11eaddc_WHITESMOKE_INC_11_08_2011-EX-10.26-PROMOTION_AND_DISTRIBUTION_AGREEMENT.txt",
+      "cuad_d2e6503b_ChinaRealEstateInformationCorp_20090929_F-1_EX-10.32_4771615_EX-10.32_Content_License_Agreement.txt"
+    ],
+    "expected_terms": [
+      "Change of Control",
+      "terminate"
+    ],
+    "notes": "Whitesmoke §5.4; CRIC content license §6.4 (Licensor may terminate on Change of Control)."
+  },
+  {
+    "id": "governing-law-aaa-ny-01",
+    "question": "Which supply agreement is governed by New York law and refers disputes to AAA arbitration in New York City?",
+    "expected_sources": [
+      "cuad_a25438c8_MEDIWOUNDLTD_01_15_2014-EX-10.6-SUPPLY_AGREEMENT.txt"
+    ],
+    "expected_terms": [
+      "State of New York",
+      "American Arbitration Association"
+    ],
+    "notes": "MediWound–CBC §15.1–15.2."
+  },
+  {
+    "id": "governing-law-prc-01",
+    "question": "Which content license agreement is governed by the laws of the People's Republic of China?",
+    "expected_sources": [
+      "cuad_d2e6503b_ChinaRealEstateInformationCorp_20090929_F-1_EX-10.32_4771615_EX-10.32_Content_License_Agreement.txt"
+    ],
+    "expected_terms": [
+      "People's Republic of China",
+      "Governing Law"
+    ],
+    "notes": "CRIC §10.11."
+  },
+  {
+    "id": "assignment-consent-01",
+    "question": "Which contracts require written consent before assignment?",
+    "expected_sources": [
+      "cuad_d2e6503b_ChinaRealEstateInformationCorp_20090929_F-1_EX-10.32_4771615_EX-10.32_Content_License_Agreement.txt",
+      "cuad_bb0d8b8a_FreezeTagInc_20180411_8-K_EX-10.1_11139603_EX-10.1_Sponsorship_Agreement.txt"
+    ],
+    "expected_terms": [
+      "assign",
+      "consent"
+    ],
+    "notes": "CRIC §10.7 (express written consent, with affiliate carve-outs); FreezeTag §18 Non-Assignment."
+  },
+  {
+    "id": "ip-investor-improvements-01",
+    "question": "Under the Rare Element intellectual property rights agreement, who owns improvements made solely by the Investor?",
+    "expected_sources": [
+      "cuad_45a1da29_RareElementResourcesLtd_20171019_SC_13D_EX-99.4_10897534_EX-99.4_Intellectual_Property_Agreement.txt"
+    ],
+    "expected_terms": [
+      "Investor Improvement",
+      "own all right, title and interest"
+    ],
+    "notes": "Rare Element §5.01 — Investor owns Investor Improvements; grants Company a limited license back."
+  },
+  {
+    "id": "sponsorship-fee-01",
+    "question": "What cash rights fee does Freeze Tag pay the American Diabetes Association under the sponsorship agreement?",
+    "expected_sources": [
+      "cuad_bb0d8b8a_FreezeTagInc_20180411_8-K_EX-10.1_11139603_EX-10.1_Sponsorship_Agreement.txt"
+    ],
+    "expected_terms": [
+      "150,000",
+      "cash rights fee"
+    ],
+    "notes": "Attachment A / payment schedule: $150,000 total."
+  },
+  {
+    "id": "marketing-region-emv-01",
+    "question": "In which region is the manufacturer responsible for marketing products under the ElectraMeccanica manufacturing agreement?",
+    "expected_sources": [
+      "cuad_19ab9269_ELECTRAMECCANICA_VEHICLES_CORP._-_Manufacturing_Agreement.txt"
+    ],
+    "expected_terms": [
+      "Asia",
+      "marketing"
+    ],
+    "notes": "§6 Marketing Regions — Asia (India not included)."
+  },
+  {
+    "id": "exclusive-supply-vericel-01",
+    "question": "For how long must Vericel purchase Product exclusively from MediWound under their supply agreement?",
+    "expected_sources": [
+      "cuad_8fc86c4a_VERICELCORP_08_06_2019-EX-10.10-SUPPLY_AGREEMENT.txt"
+    ],
+    "expected_terms": [
+      "Exclusive Supply",
+      "five (5) years"
+    ],
+    "notes": "Vericel–MediWound §2.2 — exclusive supply during first five years of the Term."
+  },
+  {
+    "id": "joint-ip-conformis-01",
+    "question": "How is Joint IP owned under the Conformis and Stryker development agreement?",
+    "expected_sources": [
+      "cuad_25037fc5_ConformisInc_20191101_10-Q_EX-10.6_11861402_EX-10.6_Development_Agreement.txt"
+    ],
+    "expected_terms": [
+      "Joint IP",
+      "owned jointly"
+    ],
+    "notes": "§5.1(c) — Improved Conformis Background IP and KIB Product IP owned jointly by the Parties."
+  }
+]

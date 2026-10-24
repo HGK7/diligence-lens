@@ -1,0 +1,29 @@
+.git
+.venv
+__pycache__
+*.pyc
+.env
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.streamlit/secrets.toml
+
+# Heavy / regenerable — mount or keep on host
+datasets/
+data/
+dataroom/
+audit/
+vendor_docs/
+
+# Local IDE / journals (optional in image; keep lean)
+journal/
+agent-transcripts/
+*.md
+!README.md
+!NOTICE
+!LICENSE
+!docs/**/*.md
+
+Dockerfile
+docker-compose.yml
+.dockerignore

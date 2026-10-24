@@ -1,0 +1,12 @@
+Diligence Lens
+Copyright (c) the Diligence Lens contributors
+
+This product may include third-party datasets and libraries.
+
+CUAD (Contract Understanding Atticus Dataset)
+  Copyright The Atticus Project and paper authors (Hendrycks et al.)
+  License: CC BY 4.0
+  See docs/ATTRIBUTION.md for citation and use notes.
+
+Other Python dependencies are listed in requirements.txt and carry their
+respective open-source licenses (inspect installed package metadata).

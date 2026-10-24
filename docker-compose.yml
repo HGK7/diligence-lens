@@ -1,0 +1,63 @@
+# Diligence Lens — future container stack
+#
+# Local path-mode Qdrant still works without Compose (default today).
+# This file is ready when you want server-mode Qdrant + containerized UI.
+#
+# Usage (when ready):
+#   1. copy .env.example → .env  (GEMINI_API_KEY)
+#   2. export CUAD → ./dataroom on the host (datasets/ stays on host, not in image)
+#   3. Ollama on the host with nomic-embed-text:v1.5  (or enable ollama service below)
+#   4. docker compose up --build
+#   5. open http://localhost:8501 → Build index (re-embed; path DB does not auto-migrate)
+#
+# See docs/DOCKER.md
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.13.2
+    ports:
+      - "6333:6333"
+      - "6334:6334"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    restart: unless-stopped
+
+  diligence-lens:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    environment:
+      # Server Qdrant (avoids path-mode >20k warning / lock fights)
+      QDRANT_URL: http://qdrant:6333
+      # Host Ollama (Windows/Mac Docker Desktop)
+      OLLAMA_HOST: http://host.docker.internal:11434
+    volumes:
+      - ./dataroom:/app/dataroom:ro
+      - ./audit:/app/audit
+    depends_on:
+      - qdrant
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  # Optional: Ollama inside Compose (needs NVIDIA Container Toolkit on Linux).
+  # On Windows laptops, prefer host Ollama + host.docker.internal above.
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+
+volumes:
+  qdrant_storage:
+  # ollama_data:

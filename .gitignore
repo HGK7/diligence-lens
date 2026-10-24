@@ -1,0 +1,82 @@
+# --- Secrets & local env ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+**/secrets.toml
+.streamlit/secrets.toml
+
+# --- Python ---
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+dist/
+build/
+
+# --- Runtime / vector DB / logs ---
+data/
+audit/
+*.log
+logs/
+
+# --- Datasets (download locally; do not commit corpora) ---
+# Keep only the empty placeholder so the folder exists in a fresh clone.
+datasets/*
+!datasets/.gitkeep
+
+# Belt-and-suspenders for common corpus layouts if placed outside datasets/
+**/CUAD_v1/
+**/full_contract_txt/
+**/full_contract_pdf/
+**/contract-nli/
+**/sample_dataroom_*/
+*.zip
+
+# Active indexed room (regenerate via scripts/export_cuad.py)
+dataroom/*
+!dataroom/.gitkeep
+
+# Legacy / experiment exports under vendor_docs (keep seed pack if you choose to commit it)
+vendor_docs/contract-nli/
+vendor_docs/cnli_*/
+vendor_docs/cnli_*.md
+vendor_docs/cnli_*.txt
+vendor_docs/cnli_*.pdf
+vendor_docs/_archived_northstar/
+vendor_docs/**/raw/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*~
+
+# --- Eval probe dumps (regenerate locally) ---
+evidence_eval_results.txt
+
+# --- Agent / generated study artifacts ---
+.agents/
+.claude/
+.codebase-study/
+.cursor/
+agent-transcripts/
+journal/_part1_evals_rewrite.md
+
+# --- Docker / local overrides ---
+docker-compose.override.yml
