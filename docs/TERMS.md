@@ -4,11 +4,11 @@
 
 ## 1. What this software is
 
-Diligence Lens is a **local-first engineering demonstration** of retrieval-augmented generation over contract text. It helps you experiment with indexing, similarity thresholds, structured findings, caching, and human approval flows.
+Diligence Lens is a local-first engineering demonstration of retrieval-augmented generation over contract text. Use it to experiment with indexing, similarity thresholds, structured findings, caching, and human approval flows.
 
 ## 2. Not legal advice
 
-Outputs are **not legal advice**, not a substitute for a licensed attorney, and not a determination of contractual rights or obligations. Do not rely on findings for commercial diligence, litigation, regulatory filings, or client work without independent professional review.
+Outputs are not legal advice, not a substitute for a licensed attorney, and not a determination of contractual rights or obligations. Do not rely on findings for commercial diligence, litigation, regulatory filings, or client work without independent professional review.
 
 ## 3. Your responsibilities
 
@@ -30,7 +30,7 @@ Do not use this project to:
 
 ## 5. No warranty
 
-The software is provided **as is**, without warranties of any kind, express or implied, including fitness for a particular purpose or non-infringement. Use at your own risk.
+The software is provided as is, without warranties of any kind, express or implied, including fitness for a particular purpose or non-infringement. Use at your own risk.
 
 ## 6. Limitation of liability
 
@@ -38,8 +38,8 @@ To the maximum extent permitted by law, authors and contributors are not liable 
 
 ## 7. Third-party services
 
-Optional integrations (Ollama, Gemini, container registries, etc.) are governed by those providers’ terms. This stub does not modify those agreements.
+Optional integrations (Ollama, Gemini, container registries, and similar) are governed by those providers' terms. This stub does not modify those agreements.
 
 ## 8. Changes
 
-These terms may be updated as the PoC hardens. Material changes should be noted in the project changelog or README.
+These terms may be updated as the PoC hardens. Note material changes in the project changelog or README.

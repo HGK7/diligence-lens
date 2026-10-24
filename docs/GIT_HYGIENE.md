@@ -32,7 +32,7 @@ If something sensitive was staged by mistake:
 
 ```powershell
 git reset HEAD -- path\to\file
-# If already committed locally (not pushed): remove from history before publish
+# If already committed locally (not pushed): remove it from history before you publish
 ```
 
 ## Regenerating ignored corpora

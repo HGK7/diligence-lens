@@ -70,6 +70,9 @@ Desktop.ini
 # --- Eval probe dumps (regenerate locally) ---
 evidence_eval_results.txt
 
+# --- Personal learning notes (site narrative; keep local) ---
+journal/
+
 # --- Agent / generated study artifacts ---
 .agents/
 .claude/

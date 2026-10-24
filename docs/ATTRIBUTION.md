@@ -3,7 +3,7 @@
 Diligence Lens may index public research corpora. Keep this file when you
 redistribute the project or publish demos that include those materials.
 
-## CUAD — Contract Understanding Atticus Dataset
+## CUAD: Contract Understanding Atticus Dataset
 
 | Field | Value |
 |-------|--------|
@@ -31,14 +31,14 @@ If you use CUAD (including a subset copied into `dataroom/`), cite:
 ### How this project uses CUAD
 
 1. You download the full CUAD distribution into `datasets/cuad/` (git clone or `data.zip`).
-2. `scripts/export_cuad.py` copies a **subset** of `.txt` contracts into `dataroom/`.
-3. Diligence Lens embeds and retrieves those files locally. It does **not** claim ownership of CUAD.
+2. `scripts/export_cuad.py` copies a subset of `.txt` contracts into `dataroom/`.
+3. Diligence Lens embeds and retrieves those files locally. It does not claim ownership of CUAD.
 
-Each export also writes `dataroom/MANIFEST.json` with source path, seed, limit, and citation metadata. Do not delete that file when sharing a frozen demo corpus.
+Each export also writes `dataroom/MANIFEST.json` with source path, seed, limit, and citation metadata. Keep that file when sharing a frozen demo corpus.
 
 ### License obligations (CC BY 4.0 summary)
 
-You must give appropriate credit, provide a link to the license, and indicate if changes were made. You may use CUAD commercially under CC BY 4.0, but this project’s own code may use a different license — see the repository root `LICENSE` when published.
+Give appropriate credit, provide a link to the license, and say if changes were made. You may use CUAD commercially under CC BY 4.0. This project's own code may use a different license; see the repository root `LICENSE`.
 
 Full legal text: https://creativecommons.org/licenses/by/4.0/
 

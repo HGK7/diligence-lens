@@ -1,7 +1,7 @@
-# Diligence Lens — containerization (future work)
+# Diligence Lens: containerization (future work)
 
-Local path-mode Qdrant is the **default** for day-to-day laptop work.  
-Compose + Qdrant **server** is ready when you want a portable stack and to leave the “>20k points in local mode” warning behind.
+Local path-mode Qdrant is the default for day-to-day laptop work.  
+Compose with a Qdrant server is ready when you want a portable stack and to avoid the local-mode warning above ~20k points.
 
 ## Target shape
 
@@ -9,9 +9,9 @@ Compose + Qdrant **server** is ready when you want a portable stack and to leave
 |---------|------|
 | `diligence-lens` | Streamlit (`portal.py`) |
 | `qdrant` | Official Qdrant image, HTTP on `:6333` |
-| Ollama | Prefer **host** install + GPU (`host.docker.internal`); optional Compose service later |
+| Ollama | Prefer host install + GPU (`host.docker.internal`); optional Compose service later |
 
-CUAD full dump stays on the host under `datasets/` (gitignored). Export to `dataroom/` on the host; Compose mounts it read-only.
+Keep the full CUAD dump on the host under `datasets/` (gitignored). Export to `dataroom/` on the host. Compose mounts that folder read-only.
 
 ## Env switches
 
@@ -25,16 +25,16 @@ CUAD full dump stays on the host under `datasets/` (gitignored). Export to `data
 
 ## When you flip the switch
 
-1. Finish a local smoke index if you still need it (path DB).
+1. Finish a local smoke index if you still need the path DB.
 2. `docker compose up --build`
 3. Open http://localhost:8501
-4. **Rebuild the index** inside the UI — path-mode vectors do **not** auto-migrate into the Qdrant volume.
-5. Confirm sidebar: Indexed points match chunk count; mode is URL (`get_index_stats()["mode"] == "url"`).
+4. Rebuild the index in the UI. Path-mode vectors do not move into the Qdrant volume on their own.
+5. Confirm the sidebar: indexed points match chunk count; mode is URL (`get_index_stats()["mode"] == "url"`).
 
-## Why not change mid-rebuild today
+## Why not change mid-rebuild
 
-Path → server is a new store. Starting Compose while a host Streamlit holds `data/qdrant/.lock` causes pain. One world at a time: finish local rebuild, then cut over.
+Path mode and server mode are different stores. Starting Compose while host Streamlit holds `data/qdrant/.lock` will conflict. Finish the local rebuild, then cut over.
 
 ## Windows GPU note
 
-Host Ollama already uses the RTX. Putting Ollama in Compose on Windows is optional and often worse for GPU passthrough — keep embeddings on the host unless you move to Linux + NVIDIA Container Toolkit.
+Host Ollama already uses the RTX. Putting Ollama in Compose on Windows is optional and often worse for GPU passthrough. Keep embeddings on the host unless you move to Linux with the NVIDIA Container Toolkit.

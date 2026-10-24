@@ -76,6 +76,7 @@ def main() -> None:
     
     for row in rows:
         print(json.dumps(row, ensure_ascii=False))
+        print(" ")
         
 
 if __name__ == "__main__":
