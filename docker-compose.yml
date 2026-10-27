@@ -1,16 +1,12 @@
-# Diligence Lens — future container stack
+# Diligence Lens — app + server Qdrant (host Ollama for embeds)
 #
-# Local path-mode Qdrant still works without Compose (default today).
-# This file is ready when you want server-mode Qdrant + containerized UI.
+# Prerequisites: host Ollama + nomic-embed-text; .env with GEMINI_API_KEY;
+# host ./dataroom exported (e.g. python scripts/export_cuad.py --limit 80 --replace).
 #
-# Usage (when ready):
-#   1. copy .env.example → .env  (GEMINI_API_KEY)
-#   2. export CUAD → ./dataroom on the host (datasets/ stays on host, not in image)
-#   3. Ollama on the host with nomic-embed-text:v1.5  (or enable ollama service below)
-#   4. docker compose up --build
-#   5. open http://localhost:8501 → Build index (re-embed; path DB does not auto-migrate)
+#   docker compose up --build
+#   → http://localhost:8501  → Build or rebuild index (path DB does not migrate)
 #
-# See docs/DOCKER.md
+# Full path: docs/DOCKER.md · local-first happy path: README.md
 
 services:
   qdrant:

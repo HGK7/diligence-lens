@@ -1,91 +1,168 @@
 # Diligence Lens
 
-A side project for hands-on practice with multi-contract due-diligence RAG.
+Local-first multi-contract due-diligence RAG PoC. Index a CUAD slice, retrieve
+with hybrid + MiniLM rerank + diversity, cut weak evidence, then ask Gemini for
+a structured finding with citation checks. Cache and latency stay visible.
+Optional approval gate pauses release for a human.
 
-The goal is a local-first app where you index a contract data room, retrieve passages above a similarity threshold, and produce a structured finding (decision, severity, confidence, verified quotes) through a LangGraph workflow and Gemini. Cache and latency stay visible in the UI. An optional approval gate can pause release for a human reviewer.
+> **Not legal advice.** Engineering experiment only. See
+> [`docs/TERMS.md`](docs/TERMS.md) and [`docs/PRIVACY.md`](docs/PRIVACY.md).
 
-> **Not legal advice.** Engineering experiment only. See [`docs/TERMS.md`](docs/TERMS.md) and [`docs/PRIVACY.md`](docs/PRIVACY.md).
+**Ship path:** local Python + host Ollama is the supported demo. Docker Compose
+is optional packaging only ([`docs/DOCKER.md`](docs/DOCKER.md)) — not required.
 
-## What I'm building toward
+## PoC knobs (frozen for this demo)
 
-- Quality-gated retrieval over many contracts in one room
-- Cross-document conflict framing and citation checks against retrieved text
-- Measurable retrieval improvements (evals in progress; hybrid search and reranking next)
-- Clear attribution for research corpora and a path to containerized runs
+| Knob | Value |
+|------|--------|
+| Active room | first **80** CUAD contracts |
+| Index size | ~**7783** points after a clean rebuild (= chunk count; confirm in sidebar) |
+| Embeddings | Ollama `nomic-embed-text` (or `nomic-embed-text:v1.5`) on **host** |
+| Generator | `GEMINI_MODEL` (default `gemini-3.5-flash-lite`) |
+| Review cut | MiniLM `rerank_score` **≥ 4.0**, final evidence **8** |
+| Empty pack | `insufficient_evidence` (no Gemini call) |
+| Vector store | Qdrant **path mode** → `data/qdrant` (`QDRANT_URL` unset) |
 
-## Stack
+## Prerequisites
 
-| Layer | Choice |
-|-------|--------|
-| UI | Streamlit |
-| Orchestration | LangGraph |
-| Generation | Google Gemini (structured JSON) |
-| Embeddings | Ollama `nomic-embed-text` (local) |
-| Vector store | Qdrant (local path mode; Compose can use a server URL) |
-| Primary corpus | [CUAD](https://github.com/The-Atticus-Project/cuad) subset in `dataroom/` |
+- Python 3.12+ recommended
+- [Ollama](https://ollama.com/) running locally
+- Google AI API key for Gemini (`GEMINI_API_KEY`)
+- ~disk for CUAD clone + embeds; GPU optional but speeds Ollama embeds
 
-## Attribution
+## Quick start (local — do this)
 
-Contract texts may come from CUAD (CC BY 4.0, The Atticus Project). Cite Hendrycks et al., NeurIPS 2021. Full notes: [`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) · [`NOTICE`](NOTICE).
+PowerShell from an empty working directory, then the repo root.
 
-## Quick start (local)
+### 1. Clone and env
 
 ```powershell
+git clone https://github.com/HGK7/diligence-lens.git
+cd diligence-lens
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-copy .env.example .env   # add GEMINI_API_KEY
-# Install + pull Ollama model: nomic-embed-text:v1.5
+copy .env.example .env
+# Edit .env → set GEMINI_API_KEY=...
 ```
 
-### Corpus: download CUAD, export into the data room
+Leave `QDRANT_URL` **unset** in `.env` for path mode.
+
+### 2. Ollama embed model
 
 ```powershell
-git clone https://github.com/The-Atticus-Project/cuad.git datasets/cuad
-# If contracts live in data.zip, extract it under datasets/cuad/
-
-python scripts/export_cuad.py --replace
-streamlit run portal.py
+ollama pull nomic-embed-text
+# Optional check:
+# Invoke-WebRequest http://127.0.0.1:11434/api/tags
 ```
 
-This exports CUAD contracts from `CUADv1.json` into `dataroom/`.  
-In the sidebar, use **Build or rebuild index** (embedding can take a while on a laptop GPU).
+### 3. CUAD → 80-doc data room
 
-Retrieval eval scripts live under `evaluation/` and `scripts/`.
+```powershell
+New-Item -ItemType Directory -Force -Path datasets | Out-Null
+git clone https://github.com/The-Atticus-Project/cuad.git datasets/cuad
+# If needed: extract datasets/cuad/data.zip so CUADv1.json exists
+# Expect: datasets/cuad/data/CUADv1.json
+
+python scripts/export_cuad.py --limit 80 --replace
+# Expect: ~80 dataroom/cuad_*.txt + dataroom/MANIFEST.json
+```
+
+### 4. Index, then portal (one process rule)
+
+Path-mode Qdrant allows **one** Python process on `data/qdrant` at a time.
+
+**Either** rebuild from the CLI **or** from the UI — not both at once, and not
+two Streamlit windows.
+
+```powershell
+# Option A — CLI index, then UI (recommended first time)
+python scripts/rebuild_index.py
+streamlit run portal.py
+
+# Option B — empty store, build inside the sidebar
+streamlit run portal.py
+# → sidebar → Build or rebuild index
+```
+
+Open http://localhost:8501
+
+**Verify**
+
+| Check | Expect |
+|-------|--------|
+| Sidebar corpus files | ~80 |
+| Sidebar indexed points | equals rebuild chunk count (~7783) |
+| Mode caption | `path` · `data/qdrant` |
+
+### 5. Smoke (honest for this room)
+
+| Question | Expect |
+|----------|--------|
+| Default portal question (Vericel exclusive supply duration) | `pass` in a few seconds |
+| *What is the diameter of Mars?* | `insufficient_evidence`, **0** sources |
+
+Do **not** demo master-vs-side-letter conflicts on this slice — no side letters
+in the 80-doc room. An abstain there is correct.
+
+## Path-mode Qdrant (locks)
+
+Embedded Qdrant locks `data/qdrant`. Symptoms: sidebar “Index locked / error”,
+`already accessed by another instance`, or `WinError 32` on `.lock`.
+
+**Avoid**
+
+- Two `streamlit run portal.py` sessions on the same repo
+- `python scripts/rebuild_index.py` / `clear_index.py` while Streamlit is up
+- Deleting `data/qdrant/.lock` while a process is still alive
+
+**Recover**
+
+1. Sidebar → **Recover index connection** (after a hot-reload glitch).
+2. If that fails: stop Streamlit (terminal Ctrl+C), confirm no other Python
+   holds the folder, start `streamlit run portal.py` once.
+3. CLI wipe only with Streamlit **stopped**:
+   `python scripts/clear_index.py` then `python scripts/rebuild_index.py`.
+
+Hot reload after editing `.py` files should reuse one client; if the sidebar
+still shows a lock error, use **Recover** or a full Streamlit restart.
+
+## Attribution
+
+Contract texts may come from CUAD (CC BY 4.0, The Atticus Project). Cite
+Hendrycks et al., NeurIPS 2021.
+[`docs/ATTRIBUTION.md`](docs/ATTRIBUTION.md) · [`NOTICE`](NOTICE).
 
 ## Layout
 
 ```text
-portal.py                       # Diligence Lens UI
-approval_portal.py              # Human approval gate
-retrieval.py                    # Chunking, Qdrant, semantic cache
-risk_graph.py                   # LangGraph review workflow
-evaluation/                     # Retrieval eval cases
-scripts/evaluate_retrieval.py   # Eval runner
-evidence_evals.py               # Quick top-k probe dump
-dataroom/                       # Active indexed subset (generated)
-datasets/cuad/                  # Full CUAD download (gitignored)
-docs/                           # Attribution, terms, privacy
+portal.py                 # Diligence Lens UI
+approval_portal.py        # Human approval gate
+retrieval.py              # Hybrid search orchestration
+qdrant_store.py           # Path/URL client (reload-safe singleton)
+risk_graph.py             # LangGraph review workflow
+hybrid.py / reranking.py  # RRF + MiniLM
+evaluation/               # Retrieval cases (~30)
 scripts/export_cuad.py
-Dockerfile
-docker-compose.yml              # app + Qdrant (optional later)
-docs/DOCKER.md                  # container notes
+scripts/rebuild_index.py
+dataroom/                 # Active subset (gitignored)
+datasets/cuad/            # Full CUAD dump (gitignored)
 ```
 
-## Containers (optional later)
+## Optional: Docker Compose
 
-`Dockerfile` and `docker-compose.yml` sketch a portable stack. The app accepts `QDRANT_URL` for server mode, or path mode when that variable is unset. Cutover notes: [`docs/DOCKER.md`](docs/DOCKER.md). Re-index after switching to server mode; the path database does not migrate automatically.
+Not required for the demo. See [`docs/DOCKER.md`](docs/DOCKER.md) if you want
+server Qdrant + a containerized UI later. Re-index after switching modes; the
+path database does not migrate.
 
 ## Roadmap
 
-- [x] Local Streamlit app + CUAD export path
-- [x] Section/paragraph chunking
-- [x] Attribution / terms / privacy stubs
-- [x] Compose + `QDRANT_URL` switch documented
-- [ ] Retrieval evals and iterative retrieval quality work
-- [ ] Hybrid BM25 / RRF and reranking
-- [ ] Threshold and scale pass
-- [ ] `docker compose up` end-to-end on a clean machine
+- [x] Local Streamlit + CUAD export path
+- [x] Hybrid BM25 / RRF, MiniLM rerank, diversity
+- [x] Part 9 v1: rerank ≥4, limit 8, empty → abstain
+- [x] Documented local happy path (primary ship)
+- [ ] Portfolio WIP page after local path reproduces twice on a fresh clone
+- [ ] Compose E2E (optional; deferred)
 
 ## License
 

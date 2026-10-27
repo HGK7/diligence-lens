@@ -1,4 +1,7 @@
-"""Wipe diligence + semantic-cache store. Stop Streamlit first (path-mode lock)."""
+"""Wipe diligence + semantic-cache store.
+
+Path mode: stop Streamlit first — only one process may hold data/qdrant.
+"""
 from __future__ import annotations
 
 import sys
@@ -16,8 +19,12 @@ def main() -> None:
     stats = get_index_stats()
     print(result, flush=True)
     print("stats after clear:", stats, flush=True)
-    if stats.get("points", 0) != 0 and not stats.get("error"):
-        raise SystemExit("Clear did not reach 0 points")
+    points = int(stats.get("points") or 0)
+    if points != 0 and not stats.get("error"):
+        raise SystemExit(
+            f"Clear did not reach 0 points (got {points}). "
+            "Stop Streamlit / other Qdrant users and retry."
+        )
 
 
 if __name__ == "__main__":

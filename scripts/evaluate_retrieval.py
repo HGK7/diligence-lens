@@ -10,6 +10,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
+from evaluation.case_utils import expects_retrieval_hit  # noqa: E402
 from retrieval import search_evidence
 
 
@@ -64,19 +65,37 @@ def main() -> None:
     args = parser.parse_args()
     
     cases = json.loads(args.cases.read_text(encoding="utf-8"))
-    rows = [evaluate_case(case, args.limit) for case in cases]
-    
-    recall = sum(row["recall"] for row in rows) / len(rows)
-    mrr = sum(row["reciprocal_rank"] for row in rows) / len(rows)
-    latency = sum(row["latency_seconds"] for row in rows) / len(rows)
-    
+    scored_cases = [case for case in cases if expects_retrieval_hit(case)]
+    boundary_cases = [case for case in cases if not expects_retrieval_hit(case)]
+    rows = [evaluate_case(case, args.limit) for case in scored_cases]
+
+    n = len(rows)
+    recall = sum(row["recall"] for row in rows) / n if n else 0.0
+    mrr = sum(row["reciprocal_rank"] for row in rows) / n if n else 0.0
+    latency = sum(row["latency_seconds"] for row in rows) / n if n else 0.0
+
+    print(f"Scored retrieval cases: {n} (skipped {len(boundary_cases)} expect_hit=false)")
     print(f"Recall@{args.limit}: {recall:.3f}")
     print(f"MRR@{args.limit}: {mrr:.3f}")
     print(f"Mean Latency: {latency:.3f}")
-    
+
     for row in rows:
         print(json.dumps(row, ensure_ascii=False))
         print(" ")
+    if boundary_cases:
+        print("Boundary / negative cases (not in Recall/MRR):")
+        for case in boundary_cases:
+            print(
+                json.dumps(
+                    {
+                        "id": case["id"],
+                        "category": case.get("category"),
+                        "question": case["question"],
+                        "expected_decision": case.get("expected_decision"),
+                    },
+                    ensure_ascii=False,
+                )
+            )
         
 
 if __name__ == "__main__":

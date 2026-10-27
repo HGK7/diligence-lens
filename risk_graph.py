@@ -1,3 +1,4 @@
+from contextvars import ContextVar
 from datetime import datetime, timezone
 import json
 import os
@@ -15,15 +16,22 @@ from time import perf_counter
 # Connect graph orchestration to the persistent cache repository.
 from retrieval import (
     check_semantic_cache,
-    search_evidence,
+    hybrid_search,
     store_semantic_cache,
 )
 load_dotenv()
-MODEL_ID = "gemini-3.8-flash"
+# Review generator — override in .env without code edits.
+MODEL_ID = os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite").strip() or (
+    "gemini-3.5-flash-lite"
+)
 AUDIT_PATH = Path("audit/runs.jsonl")
-# Review defaults tuned for laptop PoC latency (override via env).
-DEFAULT_SCORE_THRESHOLD = float(os.getenv("REVIEW_SCORE_THRESHOLD", "0.60"))
-REVIEW_EVIDENCE_LIMIT = int(os.getenv("REVIEW_EVIDENCE_LIMIT", "6"))
+# Review defaults (Part 9 calibration). Override via env.
+# Dense Evidence Search still uses cosine-style 0–1 cuts separately in the portal.
+DEFAULT_DENSE_SCORE_THRESHOLD = float(os.getenv("DENSE_SCORE_THRESHOLD", "0.60"))
+# Backward-compatible alias (old name meant “review slider”; that is now rerank).
+DEFAULT_SCORE_THRESHOLD = DEFAULT_DENSE_SCORE_THRESHOLD
+DEFAULT_RERANK_THRESHOLD = float(os.getenv("REVIEW_RERANK_THRESHOLD", "4.0"))
+REVIEW_EVIDENCE_LIMIT = int(os.getenv("REVIEW_EVIDENCE_LIMIT", "8"))
 EVIDENCE_TEXT_MAX_CHARS = int(os.getenv("EVIDENCE_TEXT_MAX_CHARS", "600"))
 GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "240"))
 
@@ -55,28 +63,59 @@ class RiskState(TypedDict, total=False):
     finding: dict
     report: str
     audit_path: str
-    score_threshold: float
+    rerank_threshold: float
     usage: dict
     semantic_cache: dict
     timings: dict
 
 
+# Portal/CLI progress hook. Kept out of graph state so LangGraph never
+# has to serialize a callable.
+_STAGE_CALLBACK: ContextVar[object | None] = ContextVar(
+    "diligence_stage_callback", default=None
+)
+
+
+def _emit_stage(_state: RiskState | None, stage: str, message: str) -> None:
+    callback = _STAGE_CALLBACK.get()
+    if callable(callback):
+        callback(stage, message)
+
+
 def retrieve_evidence_node(state: RiskState) -> dict:
-    # Apply evidence boundary before the LLM sees any passage.
+    # Hybrid pipeline for review; dense-only `search_evidence` stays for evals.
     started = perf_counter()
-    evidence = search_evidence(
+    stage_timings: dict = {}
+    rerank_threshold = float(
+        state.get("rerank_threshold", DEFAULT_RERANK_THRESHOLD)
+    )
+    _emit_stage(state, "retrieve", "Hybrid retrieve started")
+    evidence = hybrid_search(
         state["question"],
-        limit=REVIEW_EVIDENCE_LIMIT,
-        score_threshold=state.get("score_threshold", DEFAULT_SCORE_THRESHOLD),
+        final_limit=REVIEW_EVIDENCE_LIMIT,
+        rerank_threshold=rerank_threshold,
+        timings=stage_timings,
+        on_stage=lambda stage, message: _emit_stage(state, stage, message),
     )
     seconds = perf_counter() - started
     print(
-        f"[review] retrieve {len(evidence)} hits "
-        f"(limit={REVIEW_EVIDENCE_LIMIT}) in {seconds:.2f}s",
+        f"[review] hybrid retrieve {len(evidence)} hits "
+        f"(limit={REVIEW_EVIDENCE_LIMIT}, rerank>={rerank_threshold:g}) "
+        f"in {seconds:.2f}s "
+        f"(dense={stage_timings.get('dense_seconds', 0):.2f}s "
+        f"bm25={stage_timings.get('bm25_seconds', 0):.2f}s "
+        f"rerank={stage_timings.get('rerank_seconds', 0):.2f}s "
+        f"after_cut={stage_timings.get('n_after_rerank_cut', '?')})",
         flush=True,
     )
     timings = dict(state.get("timings") or {})
     timings["retrieve_seconds"] = seconds
+    timings.update(stage_timings)
+    _emit_stage(
+        state,
+        "retrieve",
+        f"Hybrid retrieve finished · {len(evidence)} passages · {seconds:.2f}s",
+    )
     return {"evidence": evidence, "timings": timings}
 
 
@@ -156,6 +195,11 @@ def _validate_citations(finding: RiskFinding, evidence: list[dict]) -> RiskFindi
 def analyze_evidence_node(state: RiskState) -> dict:
     evidence = state.get("evidence", [])
     if not evidence:
+        _emit_stage(
+            state,
+            "analyze_abstain",
+            "No passages cleared the rerank cut · abstaining",
+        )
         finding = RiskFinding(
             question=state["question"],
             decision="insufficient_evidence",
@@ -176,6 +220,11 @@ def analyze_evidence_node(state: RiskState) -> dict:
             },
         }
 
+    _emit_stage(
+        state,
+        "analyze_gemini",
+        f"Calling Gemini ({MODEL_ID}) with {len(evidence)} passages…",
+    )
     client = genai.Client()
     gemini_started = perf_counter()
     try:
@@ -211,12 +260,24 @@ def analyze_evidence_node(state: RiskState) -> dict:
 
     gemini_seconds = perf_counter() - gemini_started
     print(f"[review] gemini {gemini_seconds:.2f}s", flush=True)
+    _emit_stage(
+        state,
+        "analyze_gemini",
+        f"Gemini returned structured finding · {gemini_seconds:.2f}s",
+    )
 
+    _emit_stage(state, "analyze_validate", "Checking citation quotes against evidence…")
     validate_started = perf_counter()
     finding.question = state["question"]
     finding = _validate_citations(finding, evidence)
     validate_seconds = perf_counter() - validate_started
     print(f"[review] validate_citations {validate_seconds:.2f}s", flush=True)
+    _emit_stage(
+        state,
+        "analyze_validate",
+        f"Citation check done · {len(finding.citations)} verified · "
+        f"{validate_seconds:.2f}s",
+    )
 
     timings = dict(state.get("timings") or {})
     timings["gemini_seconds"] = gemini_seconds
@@ -229,6 +290,7 @@ def analyze_evidence_node(state: RiskState) -> dict:
 
 
 def render_report_node(state: RiskState) -> dict:
+    _emit_stage(state, "render_report", "Writing Markdown report…")
     finding = RiskFinding.model_validate(state["finding"])
     lines = [
         "# Diligence Lens Data-Room Review",
@@ -262,16 +324,21 @@ def render_report_node(state: RiskState) -> dict:
             )
     else:
         lines.append("- No locally verified citations")
-    return {"report": "\n".join(lines) + "\n"}
+    report = "\n".join(lines) + "\n"
+    _emit_stage(state, "render_report", "Markdown report ready")
+    return {"report": report}
 
 
 def write_audit_node(state: RiskState) -> dict:
+    _emit_stage(state, "write_audit", f"Appending audit event to {AUDIT_PATH}…")
     AUDIT_PATH.parent.mkdir(parents=True, exist_ok=True)
     event = {
         "timestamp_utc": datetime.now(timezone.utc).isoformat(),
         "model": MODEL_ID,
         "question": state["question"],
-        "score_threshold": state.get("score_threshold", DEFAULT_SCORE_THRESHOLD),
+        "rerank_threshold": state.get(
+            "rerank_threshold", DEFAULT_RERANK_THRESHOLD
+        ),
         "usage": state.get("usage", {}),
         "semantic_cache": state.get("semantic_cache", {}),
         "timings": state.get("timings", {}),
@@ -282,6 +349,7 @@ def write_audit_node(state: RiskState) -> dict:
     }
     with AUDIT_PATH.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False) + "\n")
+    _emit_stage(state, "write_audit", "Audit event written")
     return {"audit_path": str(AUDIT_PATH)}
 
 
@@ -324,51 +392,84 @@ def _restore_cached_review(question: str, cached: dict) -> RiskState:
     return result
 
 def run_review(
-    question: str, score_threshold: float = DEFAULT_SCORE_THRESHOLD
+    question: str,
+    rerank_threshold: float = DEFAULT_RERANK_THRESHOLD,
+    *,
+    on_stage=None,
 ) -> RiskState:
     question = question.strip()
     if not question:
         raise ValueError("A review question is required.")
-    # Time the lightweight cache boundary before graph work begins.
-    lookup_started = perf_counter()
-    cached = check_semantic_cache(question, score_threshold)
-    lookup_seconds = perf_counter() - lookup_started
-    print(f"[review] cache_lookup {lookup_seconds:.2f}s hit={cached['hit']}", flush=True)
-    if cached["hit"]:
-        result = _restore_cached_review(question, cached)
-        result["semantic_cache"]["lookup_seconds"] = lookup_seconds
-        result["timings"] = {
-            "cache_lookup_seconds": lookup_seconds,
-            "cache_hit": True,
-        }
-        return result
 
-    cache_status = {
-        "hit": False,
-        "matched_question": None,
-        "similarity": None,
-        "lookup_seconds": lookup_seconds,
-    }
-    # A miss continues automatically through retrieval and Gemini.
-    review_started = perf_counter()
-    result = GRAPH.invoke(
-        {
-            "question": question,
-            "score_threshold": score_threshold,
-            "semantic_cache": cache_status,
-            "timings": {"cache_lookup_seconds": lookup_seconds, "cache_hit": False},
+    token = _STAGE_CALLBACK.set(on_stage)
+    try:
+        def emit(stage: str, message: str) -> None:
+            if callable(on_stage):
+                on_stage(stage, message)
+
+        # Time the lightweight cache boundary before graph work begins.
+        # Cache key includes the rerank cut so 4.0 results do not collide with old 0.60 keys.
+        emit("cache_lookup", "Checking exact / semantic review cache…")
+        lookup_started = perf_counter()
+        cached = check_semantic_cache(question, rerank_threshold)
+        lookup_seconds = perf_counter() - lookup_started
+        print(
+            f"[review] cache_lookup {lookup_seconds:.2f}s hit={cached['hit']}",
+            flush=True,
+        )
+        if cached["hit"]:
+            emit(
+                "cache_hit",
+                f"Semantic cache hit · similarity "
+                f"{cached.get('similarity', 0):.3f} · {lookup_seconds:.2f}s",
+            )
+            result = _restore_cached_review(question, cached)
+            result["semantic_cache"]["lookup_seconds"] = lookup_seconds
+            result["timings"] = {
+                "cache_lookup_seconds": lookup_seconds,
+                "cache_hit": True,
+            }
+            emit("done", "Restored cached finding · skipped retrieval and Gemini")
+            return result
+
+        emit(
+            "cache_miss",
+            f"Cache miss · {lookup_seconds:.2f}s · continuing to retrieve",
+        )
+        cache_status = {
+            "hit": False,
+            "matched_question": None,
+            "similarity": None,
+            "lookup_seconds": lookup_seconds,
         }
-    )
-    total = perf_counter() - review_started
-    result["semantic_cache"]["review_seconds"] = total
-    timings = dict(result.get("timings") or {})
-    timings["review_seconds"] = total
-    result["timings"] = timings
-    print(
-        f"[review] total {total:.2f}s "
-        f"(retrieve={timings.get('retrieve_seconds', '?')}s "
-        f"gemini={timings.get('gemini_seconds', '?')}s)",
-        flush=True,
-    )
-    store_semantic_cache(question, score_threshold, result)
-    return result
+        # A miss continues automatically through retrieval and Gemini.
+        # Empty evidence after the rerank cut → analyze_evidence_node abstains.
+        review_started = perf_counter()
+        result = GRAPH.invoke(
+            {
+                "question": question,
+                "rerank_threshold": rerank_threshold,
+                "semantic_cache": cache_status,
+                "timings": {
+                    "cache_lookup_seconds": lookup_seconds,
+                    "cache_hit": False,
+                },
+            }
+        )
+        total = perf_counter() - review_started
+        result["semantic_cache"]["review_seconds"] = total
+        timings = dict(result.get("timings") or {})
+        timings["review_seconds"] = total
+        result["timings"] = timings
+        print(
+            f"[review] total {total:.2f}s "
+            f"(retrieve={timings.get('retrieve_seconds', '?')}s "
+            f"gemini={timings.get('gemini_seconds', '?')}s)",
+            flush=True,
+        )
+        emit("store_cache", "Storing review in semantic cache…")
+        store_semantic_cache(question, rerank_threshold, result)
+        emit("done", f"Review finished · {total:.2f}s wall time")
+        return result
+    finally:
+        _STAGE_CALLBACK.reset(token)

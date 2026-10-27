@@ -79,6 +79,7 @@ journal/
 .codebase-study/
 .cursor/
 agent-transcripts/
+handoff.md
 journal/_part1_evals_rewrite.md
 
 # --- Docker / local overrides ---

@@ -1,5 +1,13 @@
 [server]
 headless = true
+# Path-mode Qdrant is single-process; one Streamlit per data/qdrant is enough.
+# Prefer a full restart over fighting locks if Recover index connection fails.
+#
+# Disable module path watching: Streamlit's LocalSourcesWatcher probes every
+# imported package. sentence_transformers -> transformers lazy-loads dozens of
+# vision processors that import torchvision (not needed for CrossEncoder) and
+# floods the terminal with ModuleNotFoundError noise. Manual restart is fine.
+fileWatcherType = "none"
 
 [browser]
 gatherUsageStats = false
